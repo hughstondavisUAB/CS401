@@ -65,6 +65,12 @@
    ; when it's null, return Racket's null
    (lambda (_) '())))
 
+; Define primitive operations and needed helpers using a top-level let form?
+      
+
+(define Y (lambda (f)
+  ((lambda(x) (f (lambda (y) ((x x) y)))))
+   (lambda(x) (f (lambda(y) ((x x) y))))))
 
 ;; Write your church-compiling code below:
 
@@ -72,15 +78,71 @@
 ;   to an equivalent (when converted back via each church->XYZ) expression in the output language (defined above)
 (define (churchify e)
   (match e
-         [_ 'todo]))
+    [`(let ([,xs ,rs] ...) ,body)
+     (churchify `((lambda ,xs ,body) . ,rs))]
+    
+    ;[`(let* ([,(cons x e)] ...) ,body)
+     ;(let recursive ([bind (reverse `((,x ,e) ...))])
+      ; (if (null? bind)
+       ;    body
+        ;   (let* ([bindto (car bind)]
+         ;         [rest (cdr bind)])
+          ;   `((lambda ,(car bindto) ,(recursive rest))
+           ;    ,(cdr bindto)))))]
+    ;[`(letrec ([,xs ,rs] ...) ,body)
+     ;`((Y (lambda (map car rc)
+      ;      (lambda ,@(map car xs) ,body)))
+       ;,@(map cdr rs))]
+   
+
+    [`(lambda (,x) ,e0)
+     `(lambda(,x) ,(churchify e0))]
+    
+    [`(lambda (,x . ,rest) ,e0)
+     `(lambda (,x) ,(churchify `(lambda ,rest ,e0)))]
+
+    [(? symbol? x) x]
+
+    [(? natural? nat)
+     (define (wrap nat)
+       (cond
+         [(= 0 nat) 'x]
+         
+         [else `(f ,(wrap (- nat 1)))]))
+     (churchify `(lambda (f) (lambda (x) ,(wrap nat))))]
+    
+    [`(,fun ,arg)
+     `(,(churchify fun) ,(churchify arg))]
+    [`(,fun ,arg . ,rest)
+     (churchify `((,fun ,arg) . ,rest))]
+    ))
+
+
 
 ; Takes a whole program in the input language, and converts it into an equivalent program in lambda-calc
 (define (church-compile program)
   ; Define primitive operations and needed helpers using a top-level let form?
-  (define todo `(lambda (x) x))
+
+  (define myzero `(lambda(f)(lambda(x) x)))
+  (define myone `(lambda(f)(lambda(x) (f x))))
+  (define mytwo `(lambda(f)(lambda(x) f(f x))))
+  (define mythree `(lambda(f)(lambda(x) f(f(f x)))))              
+  (define myadd1 `(lambda(n)(lambda (f x) (f ((n f)) x))))
+  (define myadd `(lambda (n0 n1) (lambda(f x)((n1 f) ((n0 f) x)))))
+  (define mymultiply `(lambda(n m) (lambda (f) (n (m f)))))
+  ;(define myzero? `(lambda (x) (= x 0) #t))
+    
+
   (churchify
-   `(let ([add1 ,todo]
-          [+ ,todo]
-          [* ,todo]
-          [zero? ,todo])
+   `(let ([zero ,myzero]
+          [one ,myone]
+          [two ,mytwo]
+          [three ,mythree]          
+          [add1 ,myadd1]
+          [+ ,myadd]
+          [* ,mymultiply]
+          [zero? ,myzero?])
       ,program)))
+
+(require racket/trace)
+(trace churchify)

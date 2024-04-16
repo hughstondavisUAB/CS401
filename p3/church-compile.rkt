@@ -64,20 +64,12 @@
   ((c-lst (lambda (a) (lambda (b) (cons (T a) ((church->listof T) b)))))
    ; when it's null, return Racket's null
    (lambda (_) '())))
-(define zero (lambda(f)(lambda(x) x)))
-(define succ (lambda(n)
-               (lambda(f)
-                 (lambda(x)
-                   (f ((n f) x))))))
-
-(define church->true (lambda(t f) t))
-(define church->false (lambda(t f) f))
 
 ; Define primitive operations and needed helpers using a top-level let form?
       
 
-(define (Y f)
-  ((lambda(x) (x x))
+(define Y (lambda (f)
+  ((lambda(x) (f (lambda (y) ((x x) y)))))
    (lambda(x) (f (lambda(y) ((x x) y))))))
 
 ;; Write your church-compiling code below:
@@ -88,11 +80,27 @@
   (match e
     [`(let ([,xs ,rs] ...) ,body)
      (churchify `((lambda ,xs ,body) . ,rs))]
+    [#t `(lambda (x) (lambda (y) x))]
+    [#f `(lambda (x) (lambda (y) y))]
+    [`(let* ([,(cons x e)] ...) ,body)
+    (let recursive ([bind (reverse `((,x ,e) ...))])
+     (if (null? bind)
+        body
+      (let* ([bindto (car bind)]
+             [rest (cdr bind)])
+       `((lambda ,(car bindto) ,(recursive rest))
+        ,(cdr bindto)))))]
+    [`(letrec ([,xs ,rs] ...) ,body)
+    `((Y (lambda (map car rc)
+          (lambda ,@(map car xs) ,body)))
+    ,@(map cdr rs))]
+   
 
     [`(lambda (,x) ,e0)
      `(lambda(,x) ,(churchify e0))]
+    
     [`(lambda (,x . ,rest) ,e0)
-     `(lambda (,x) ,(churchify '(lambda ,rest ,e0)))]
+     `(lambda (,x) ,(churchify `(lambda ,rest ,e0)))]
 
     [(? symbol? x) x]
 
@@ -100,19 +108,45 @@
      (define (wrap nat)
        (cond
          [(= 0 nat) 'x]
-         [else
-         `(f ,(wrap (- nat 1)))]))
+         
+         [else `(f ,(wrap (- nat 1)))]))
      (churchify `(lambda (f) (lambda (x) ,(wrap nat))))]
+    
     [`(,fun ,arg)
      `(,(churchify fun) ,(churchify arg))]
     [`(,fun ,arg . ,rest)
-     (churchify `((,fun ,arg) . ,rest))]))
+     (churchify `((,fun ,arg) . ,rest))]
+    ))
+
+
 
 ; Takes a whole program in the input language, and converts it into an equivalent program in lambda-calc
 (define (church-compile program)
   ; Define primitive operations and needed helpers using a top-level let form?
-  (define myplus `(lambda (n0 n1) (lambda(f x)((n1 f) ((n0 f) x)))))
+  (define true (lambda (x)(lambda(y) x)))
+  (define false (lambda (x)(lambda(y) y)))
+  ;(define myzero `(lambda(f)(lambda(x) x)))
+  ;(define myone `(lambda(f)(lambda(x) (f x))))
+  ;(define mytwo `(lambda(f)(lambda(x) f(f x))))
+  ;(define mythree `(lambda(f)(lambda(x) f(f(f x)))))              
+  (define myadd1 `(lambda(n)(lambda (f)(lambda(x) (f ((n f) x))))))
+  (define myadd `(lambda (n0 n1) (lambda(f x)((n0 f) ((n1 f) x)))))
+  (define mymultiply `(lambda(n m) (lambda (f) (n (m f)))))
+  (define myzero? `(lambda (x)((x (lambda(y) #f))#t)))
+    
 
   (churchify
-   `(let ([+ ,myplus])
+   `(let (
+          ;[zero ,myzero]
+          ;[one ,myone]
+          ;[two ,mytwo]
+          ;[three ,mythree]          
+          [add1 ,myadd1]
+          [+ ,myadd]
+          [* ,mymultiply]
+          [zero? ,myzero?] 
+          )
       ,program)))
+
+(require racket/trace)
+(trace churchify)
