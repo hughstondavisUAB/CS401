@@ -64,21 +64,7 @@
   ((c-lst (lambda (a) (lambda (b) (cons (T a) ((church->listof T) b)))))
    ; when it's null, return Racket's null
    (lambda (_) '())))
-(define zero (lambda(f)(lambda(x) x)))
-(define succ (lambda(n)
-               (lambda(f)
-                 (lambda(x)
-                   (f ((n f) x))))))
 
-(define church->true (lambda(t f) t))
-(define church->false (lambda(t f) f))
-
-; Define primitive operations and needed helpers using a top-level let form?
-      
-
-(define (Y f)
-  ((lambda(x) (x x))
-   (lambda(x) (f (lambda(y) ((x x) y))))))
 
 ;; Write your church-compiling code below:
 
@@ -86,33 +72,15 @@
 ;   to an equivalent (when converted back via each church->XYZ) expression in the output language (defined above)
 (define (churchify e)
   (match e
-    [`(let ([,xs ,rs] ...) ,body)
-     (churchify `((lambda ,xs ,body) . ,rs))]
-
-    [`(lambda (,x) ,e0)
-     `(lambda(,x) ,(churchify e0))]
-    [`(lambda (,x . ,rest) ,e0)
-     `(lambda (,x) ,(churchify '(lambda ,rest ,e0)))]
-
-    [(? symbol? x) x]
-
-    [(? natural? nat)
-     (define (wrap nat)
-       (cond
-         [(= 0 nat) 'x]
-         [else
-         `(f ,(wrap (- nat 1)))]))
-     (churchify `(lambda (f) (lambda (x) ,(wrap nat))))]
-    [`(,fun ,arg)
-     `(,(churchify fun) ,(churchify arg))]
-    [`(,fun ,arg . ,rest)
-     (churchify `((,fun ,arg) . ,rest))]))
+         [_ 'todo]))
 
 ; Takes a whole program in the input language, and converts it into an equivalent program in lambda-calc
 (define (church-compile program)
   ; Define primitive operations and needed helpers using a top-level let form?
-  (define myplus `(lambda (n0 n1) (lambda(f x)((n1 f) ((n0 f) x)))))
-
+  (define todo `(lambda (x) x))
   (churchify
-   `(let ([+ ,myplus])
+   `(let ([add1 ,todo]
+          [+ ,todo]
+          [* ,todo]
+          [zero? ,todo])
       ,program)))
